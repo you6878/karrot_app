@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1004094030952",
+    "project_id": "howlkarrot4",
+    "storage_bucket": "howlkarrot4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1004094030952:android:d23aa3c85c2435e36ca7dd",
+        "android_client_info": {
+          "package_name": "com.example.karrot_clone"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAb8XR0BUXqbpMmrAoUBJrE33GQNsWMVmk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

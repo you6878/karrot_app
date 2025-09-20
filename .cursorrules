@@ -1,0 +1,120 @@
+## 프로젝트 개요
+- 당근마켓 클론 Flutter 앱 개발
+- Clean Architecture 패턴 사용
+- Firebase 백엔드 연동
+- Bloc 상태관리 패턴
+
+## 폴더 구조 규칙
+lib/
+├── core/                    # 앱 전반의 핵심 기능
+│   ├── constants/          # 상수 정의
+│   ├── theme/             # 테마 및 스타일
+│   ├── errors/            # 에러 처리
+│   └── network/           # 네트워크 관련
+├── data/                   # 데이터 레이어
+│   ├── models/            # 데이터 모델
+│   ├── repositories/      # Repository 구현체
+│   └── datasources/       # 데이터 소스 (local/remote)
+├── domain/                 # 도메인 레이어
+│   ├── entities/          # 엔티티
+│   ├── repositories/      # Repository 인터페이스
+│   └── usecases/          # 유즈케이스
+├── presentation/           # 프레젠테이션 레이어
+│   ├── bloc/             # BLoC 상태관리
+│   ├── pages/            # 화면 페이지
+│   │   ├── auth/         # 인증 관련 페이지
+│   │   │   ├── login_page.dart        # 로그인 화면
+│   │   │   └── register_page.dart     # 회원가입 화면
+│   │   ├── main/         # 메인 화면
+│   │   │   ├── main_navigation_page.dart  # 메인 네비게이션 (BottomNavigationBar)
+│   │   │   ├── home/     # 홈 탭
+│   │   │   │   └── home_page.dart
+│   │   │   ├── town_life/ # 동네생활 탭
+│   │   │   │   └── town_life_page.dart
+│   │   │   ├── chat/     # 채팅 탭
+│   │   │   │   └── chat_list_page.dart
+│   │   │   └── profile/  # 프로필 탭
+│   │   │       └── profile_page.dart
+│   │   └── ...          # 기타 페이지들
+│   ├── widgets/          # 재사용 가능한 위젯
+│   └── routes/           # 라우팅
+├── utils/                  # 유틸리티
+│   ├── helpers/          # 헬퍼 함수들
+│   ├── extensions/       # 확장 메서드
+│   ├── enums/           # 열거형
+│   └── constants/       # 상수
+└── services/              # 서비스
+
+## 코딩 규칙
+
+### 1. 네이밍 컨벤션
+- 파일명: snake_case (예: product_model.dart)
+- 클래스명: PascalCase (예: ProductModel)
+- 변수/메서드명: camelCase (예: getUserById)
+- 상수명: UPPER_SNAKE_CASE (예: MAX_IMAGE_SIZE)
+
+### 2. 파일 생성 규칙
+- Model 클래스는 반드시 `data/models/` 폴더에 생성
+- Entity 클래스는 `domain/entities/` 폴더에 생성
+- BLoC 파일은 `presentation/bloc/{기능명}/` 폴더에 생성
+- Page 파일은 `presentation/pages/{기능명}/` 폴더에 생성
+- 공통 위젯은 `presentation/widgets/common/` 폴더에 생성
+- 기능별 위젯은 `presentation/widgets/{기능명}/` 폴더에 생성
+
+### 3. 클래스 구조 규칙
+- Model 클래스는 반드시 Equatable을 상속
+- fromJson, toJson 메서드 필수 구현
+- copyWith 메서드 구현 권장
+- 모든 필드는 final로 선언
+
+### 4. BLoC 패턴 규칙
+- Event, State, BLoC 파일을 분리하여 생성
+- Event는 현재형으로 명명 (예: LoadProducts)
+- State는 상태를 나타내는 형용사로 명명 (예: ProductsLoading, ProductsLoaded)
+- Equatable 상속 필수
+
+### 5. Firebase 연동 규칙
+- Collection 이름은 `utils/constants/firebase_collections.dart`에서 관리
+- Firestore 쿼리는 Repository에서만 수행
+- Firebase 서비스는 `data/datasources/remote/` 폴더에 생성
+
+### 6. 위젯 생성 규칙
+- StatelessWidget 우선 사용
+- 재사용 가능한 위젯은 별도 파일로 분리
+- 위젯 크기는 MediaQuery 또는 LayoutBuilder 사용
+
+### 7. 에러 처리 규칙
+- try-catch 블록 필수 사용
+- 사용자에게 친화적인 에러 메시지 제공
+- 로그 출력은 개발 환경에서만
+
+### 8. 성능 최적화 규칙
+- ListView.builder 사용 권장
+- 이미지는 cached_network_image 사용
+- 무거운 작업은 isolate 사용 고려
+
+### 9. Import 충돌 방지 규칙
+- Firebase Auth의 User와 앱의 User 충돌 시 alias 사용
+- import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+- Firebase 관련 클래스는 firebase_auth.User로 접근
+
+## 스타일 가이드
+- 당근마켓 브랜드 컬러 사용: #FF6F0F (주황색)
+
+## 데이터 모델 구조
+
+- **UserModel**: id, email, nickname, profileImageUrl?, phone, location, mannerTemperature, createdAt, updatedAt, isLocationVerified
+- **ProductModel**: id, title, description, price, imageUrls, category, sellerId, location, status, viewCount, likeCount, createdAt, updatedAt, isNegotiable
+- **ChatModel**: id, productId, buyerId, sellerId, lastMessage?, unreadCount, createdAt, updatedAt, isActive
+- **MessageModel**: id, chatId, senderId, content, type, sentAt, isRead, imageUrl?
+- **CategoryModel**: id, name, iconUrl, color, order
+- **LocationModel**: latitude, longitude, address, district, city
+- **TransactionModel**: id, productId, buyerId, sellerId, price, type, completedAt, review?
+- **ReviewModel**: id, transactionId, reviewerId, revieweeId, rating, content, createdAt
+- **NotificationModel**: id, userId, title, body, type, data, isRead, createdAt
+
+## Enums
+enum ProductStatus { available, reserved, sold }
+enum MessageType { text, image, system }
+enum TransactionType { buy, sell }
+enum NotificationType { chat, transaction, system }
