@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import '../../../domain/entities/user_entity.dart';
+import '../../../data/repositories/user_repository_impl.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -12,8 +14,9 @@ class _RegisterPageState extends State<RegisterPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nicknameController = TextEditingController();
-  final _phoneController = TextEditingController(); // 디자인용만 유지
+  final _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  final _userRepository = UserRepositoryImpl();
   bool _isLoading = false;
 
   @override
@@ -35,6 +38,21 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
+      // 닉네임 중복 확인
+      final isNicknameAvailable = await _userRepository
+          .isNicknameAvailable(_nicknameController.text.trim());
+      if (!isNicknameAvailable) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('이미 사용 중인 닉네임입니다.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
       // Firebase Auth 이메일 회원가입
       final credential = await firebase_auth.FirebaseAuth.instance
           .createUserWithEmailAndPassword(
@@ -42,19 +60,35 @@ class _RegisterPageState extends State<RegisterPage> {
         password: _passwordController.text.trim(),
       );
 
-      // 사용자 프로필 업데이트 (닉네임 설정)
-      await credential.user?.updateDisplayName(_nicknameController.text.trim());
+      if (credential.user != null) {
+        // 사용자 프로필 업데이트 (닉네임 설정)
+        await credential.user!
+            .updateDisplayName(_nicknameController.text.trim());
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('회원가입이 완료되었습니다!'),
-            backgroundColor: Color(0xFFFF700F),
-          ),
+        // Firestore에 사용자 정보 저장
+        final now = DateTime.now();
+        final userEntity = UserEntity(
+          id: credential.user!.uid,
+          email: _emailController.text.trim(),
+          nickname: _nicknameController.text.trim(),
+          phone: _phoneController.text.trim(),
+          createdAt: now,
+          updatedAt: now,
         );
 
-        // 로그인 페이지로 돌아가기
-        Navigator.pop(context);
+        await _userRepository.createUser(userEntity);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('회원가입이 완료되었습니다!'),
+              backgroundColor: Color(0xFFFF700F),
+            ),
+          );
+
+          // 로그인 페이지로 돌아가기
+          Navigator.pop(context);
+        }
       }
     } on firebase_auth.FirebaseAuthException catch (e) {
       String errorMessage;
@@ -124,6 +158,17 @@ class _RegisterPageState extends State<RegisterPage> {
     }
     if (value.length < 2) {
       return '닉네임은 2자 이상이어야 합니다';
+    }
+    return null;
+  }
+
+  String? _validatePhone(String? value) {
+    if (value == null || value.isEmpty) {
+      return '연락처를 입력해주세요';
+    }
+    if (!RegExp(r'^01[0-9]-?[0-9]{4}-?[0-9]{4}$')
+        .hasMatch(value.replaceAll('-', ''))) {
+      return '올바른 연락처 형식을 입력해주세요 (예: 010-1234-5678)';
     }
     return null;
   }
@@ -308,10 +353,12 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: TextField(
+                          child: TextFormField(
                             controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            validator: _validatePhone,
                             decoration: const InputDecoration(
-                              hintText: '연락처를 입력하세요',
+                              hintText: '연락처를 입력하세요 (예: 010-1234-5678)',
                               hintStyle: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w400,
