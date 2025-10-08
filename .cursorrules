@@ -104,7 +104,7 @@ lib/
 ## 데이터 모델 구조
 
 - **UserModel**: id, email, nickname, profileImageUrl?, phone, location, mannerTemperature, createdAt, updatedAt, isLocationVerified
-- **ProductModel**: id, title, description, price, imageUrls, category, sellerId, location, status, viewCount, likeCount, createdAt, updatedAt, isNegotiable
+- **ProductModel**: id, title, description, price, imageUrls, category, sellerId, location, longitude, latitude, status, viewCount, likeCount, createdAt, updatedAt, isNegotiable
 - **ChatModel**: id, productId, buyerId, sellerId, lastMessage?, unreadCount, createdAt, updatedAt, isActive
 - **MessageModel**: id, chatId, senderId, content, type, sentAt, isRead, imageUrl?
 - **CategoryModel**: id, name, iconUrl, color, order
