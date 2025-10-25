@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:karrot_clone/presentation/pages/product/product_upload_page.dart';
-import 'package:karrot_clone/data/datasources/remote/product_remote_datasource.dart';
-import 'package:karrot_clone/data/repositories/product_repository_impl.dart';
-import 'package:karrot_clone/domain/entities/product.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:karrot_clone/presentation/pages/product/product_upload_page.dart';
+import 'package:karrot_clone/data/models/product_model.dart';
+import 'package:karrot_clone/domain/entities/product.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -14,21 +13,9 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  late final ProductRepositoryImpl _productRepository;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  @override
-  void initState() {
-    super.initState();
-    // Repository 초기화
-    final remoteDataSource = ProductRemoteDataSourceImpl(
-      firestore: FirebaseFirestore.instance,
-    );
-    _productRepository = ProductRepositoryImpl(
-      remoteDataSource: remoteDataSource,
-    );
-  }
-
-  /// 시간 차이 계산 (createdAt과 현재 시간 비교)
+  /// 시간 차이 계산
   String _getTimeAgo(DateTime createdAt) {
     final now = DateTime.now();
     final difference = now.difference(createdAt);
@@ -64,29 +51,14 @@ class _HomePageState extends State<HomePage> {
             // 상단 헤더
             _buildHeader(),
 
-            // 상품 리스트 (StreamBuilder 사용)
+            // 상품 리스트 (Firestore StreamBuilder)
             Expanded(
-              child: StreamBuilder<List<Product>>(
-                stream: _productRepository.getProductsStream(),
+              child: StreamBuilder<QuerySnapshot>(
+                stream: _firestore
+                    .collection('products')
+                    .orderBy('createdAt', descending: true)
+                    .snapshots(),
                 builder: (context, snapshot) {
-                  // 디버그 로그
-                  print('🔍 StreamBuilder 상태: ${snapshot.connectionState}');
-                  print('🔍 에러 여부: ${snapshot.hasError}');
-                  if (snapshot.hasError) {
-                    print('❌ 에러 내용: ${snapshot.error}');
-                  }
-                  print('🔍 데이터 여부: ${snapshot.hasData}');
-                  if (snapshot.hasData) {
-                    print('🔍 상품 개수: ${snapshot.data!.length}');
-                    for (var product in snapshot.data!) {
-                      print(
-                          '📦 상품: ${product.title}, 이미지 개수: ${product.imageUrls.length}');
-                      if (product.imageUrls.isNotEmpty) {
-                        print('   🖼️ 첫 번째 이미지: ${product.imageUrls.first}');
-                      }
-                    }
-                  }
-
                   // 로딩 중
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
@@ -129,7 +101,7 @@ class _HomePageState extends State<HomePage> {
                   }
 
                   // 데이터가 없음
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                     return Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -160,11 +132,19 @@ class _HomePageState extends State<HomePage> {
                   }
 
                   // 데이터 표시
-                  final products = snapshot.data!;
+                  final docs = snapshot.data!.docs;
+                  final products = docs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    return ProductModel.fromJson({
+                      'id': doc.id,
+                      ...data,
+                    });
+                  }).toList();
+
                   return RefreshIndicator(
                     color: const Color(0xFFFF700F),
                     onRefresh: () async {
-                      // StreamBuilder는 자동으로 새로고침되므로 약간의 딜레이만 추가
+                      setState(() {});
                       await Future.delayed(const Duration(milliseconds: 500));
                     },
                     child: ListView.builder(
@@ -190,11 +170,12 @@ class _HomePageState extends State<HomePage> {
             ),
           );
 
-          // 상품 등록 후 돌아왔을 때 처리 (StreamBuilder가 자동으로 업데이트)
+          // 상품 등록 후 자동으로 업데이트됨
           if (result != null && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('상품이 홈 화면에 표시됩니다'),
+                content: Text('상품이 등록되었습니다'),
+                backgroundColor: Color(0xFF4CAF50),
                 duration: Duration(seconds: 2),
               ),
             );
@@ -281,7 +262,10 @@ class _HomePageState extends State<HomePage> {
         onTap: () {
           // TODO: 상품 상세 페이지로 이동
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${product.title} 상세 페이지')),
+            SnackBar(
+              content: Text('${product.title} 상세 페이지'),
+              duration: const Duration(seconds: 1),
+            ),
           );
         },
         borderRadius: BorderRadius.circular(12),
@@ -299,47 +283,29 @@ class _HomePageState extends State<HomePage> {
                         width: 96,
                         height: 96,
                         fit: BoxFit.cover,
-                        placeholder: (context, url) {
-                          print('🖼️ 이미지 로딩 중: $url');
-                          return Container(
-                            width: 96,
-                            height: 96,
-                            color: const Color(0xFFE6E6E6),
-                            child: const Center(
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Color(0xFFFF700F),
-                              ),
+                        placeholder: (context, url) => Container(
+                          width: 96,
+                          height: 96,
+                          color: const Color(0xFFE6E6E6),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFFFF700F),
                             ),
-                          );
-                        },
-                        errorWidget: (context, url, error) {
-                          print('❌ 이미지 로딩 실패: $url');
-                          print('   에러: $error');
-                          return Container(
-                            width: 96,
-                            height: 96,
-                            color: const Color(0xFFE6E6E6),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.error_outline,
-                                  color: Color(0xFF999999),
-                                  size: 24,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '로딩 실패',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Color(0xFF999999),
-                                  ),
-                                ),
-                              ],
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          width: 96,
+                          height: 96,
+                          color: const Color(0xFFE6E6E6),
+                          child: const Center(
+                            child: Icon(
+                              Icons.error_outline,
+                              color: Color(0xFF999999),
+                              size: 32,
                             ),
-                          );
-                        },
+                          ),
+                        ),
                       )
                     : Container(
                         width: 96,

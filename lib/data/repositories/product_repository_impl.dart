@@ -56,15 +56,6 @@ class ProductRepositoryImpl implements ProductRepository {
   }
 
   @override
-  Stream<List<Product>> getProductsStream() {
-    try {
-      return remoteDataSource.getProductsStream();
-    } catch (e) {
-      throw Exception('상품 스트림 조회 실패: $e');
-    }
-  }
-
-  @override
   Future<List<Product>> getProductsBySeller(String sellerId) async {
     try {
       return await remoteDataSource.getProductsBySeller(sellerId);

@@ -16,9 +16,6 @@ abstract class ProductRepository {
   /// 모든 상품 목록을 조회합니다
   Future<List<Product>> getAllProducts();
 
-  /// 실시간 상품 목록 스트림을 가져옵니다
-  Stream<List<Product>> getProductsStream();
-
   /// 판매자 ID로 상품 목록을 조회합니다
   Future<List<Product>> getProductsBySeller(String sellerId);
 

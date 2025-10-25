@@ -7,7 +7,6 @@ abstract class ProductRemoteDataSource {
   Future<void> deleteProduct(String productId);
   Future<ProductModel?> getProductById(String productId);
   Future<List<ProductModel>> getAllProducts();
-  Stream<List<ProductModel>> getProductsStream();
   Future<List<ProductModel>> getProductsBySeller(String sellerId);
   Future<List<ProductModel>> getProductsByCategory(String category);
   Future<void> incrementViewCount(String productId);
@@ -77,37 +76,6 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
           .toList();
     } catch (e) {
       throw Exception('상품 목록 조회 실패: $e');
-    }
-  }
-
-  @override
-  Stream<List<ProductModel>> getProductsStream() {
-    try {
-      return _productsCollection.snapshots().map((querySnapshot) {
-        print('🔥 Firestore에서 받은 문서 개수: ${querySnapshot.docs.length}');
-        final products = querySnapshot.docs
-            .map((doc) {
-              print('📄 문서 ID: ${doc.id}');
-              try {
-                final product = ProductModel.fromFirestore(doc);
-                print('   ✅ 파싱 성공: ${product.title}');
-                return product;
-              } catch (e) {
-                print('   ❌ 파싱 실패: $e');
-                return null;
-              }
-            })
-            .whereType<ProductModel>()
-            .toList();
-
-        // createdAt 기준으로 정렬 (앱에서 처리)
-        products.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        print('📦 최종 상품 개수: ${products.length}');
-        return products;
-      });
-    } catch (e) {
-      print('❌ 스트림 에러: $e');
-      throw Exception('상품 스트림 조회 실패: $e');
     }
   }
 
