@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:karrot_clone/presentation/pages/product/product_upload_page.dart';
+import 'package:karrot_clone/presentation/pages/product/product_detail_page.dart';
 import 'package:karrot_clone/data/models/product_model.dart';
 import 'package:karrot_clone/domain/entities/product.dart';
 
@@ -260,11 +261,10 @@ class _HomePageState extends State<HomePage> {
       ),
       child: InkWell(
         onTap: () {
-          // TODO: 상품 상세 페이지로 이동
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${product.title} 상세 페이지'),
-              duration: const Duration(seconds: 1),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ProductDetailPage(product: product),
             ),
           );
         },

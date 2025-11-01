@@ -320,6 +320,7 @@ class _ProductUploadPageState extends State<ProductUploadPage> {
         status: ProductStatus.available,
         viewCount: 0,
         likeCount: 0,
+        likeUids: [], // 초기에는 빈 배열
         createdAt: now,
         updatedAt: now,
         isNegotiable: true,

@@ -16,6 +16,7 @@ class Product extends Equatable {
   final ProductStatus status;
   final int viewCount;
   final int likeCount;
+  final List<String> likeUids;
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isNegotiable;
@@ -34,6 +35,7 @@ class Product extends Equatable {
     required this.status,
     required this.viewCount,
     required this.likeCount,
+    required this.likeUids,
     required this.createdAt,
     required this.updatedAt,
     required this.isNegotiable,
@@ -54,6 +56,7 @@ class Product extends Equatable {
         status,
         viewCount,
         likeCount,
+        likeUids,
         createdAt,
         updatedAt,
         isNegotiable,
