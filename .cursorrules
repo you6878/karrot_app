@@ -105,7 +105,7 @@ lib/
 
 - **UserModel**: id, email, nickname, profileImageUrl?, phone, location, mannerTemperature, createdAt, updatedAt, isLocationVerified
 - **ProductModel**: id, title, description, price, imageUrls, category, sellerId, location, longitude, latitude, status, viewCount, likeCount, likeUids, createdAt, updatedAt, isNegotiable
-- **ChatModel**: id, productId, buyerId, sellerId, lastMessage?, unreadCount, createdAt, updatedAt, isActive
+- **ChatModel**: id, productId, buyerId, sellerId, lastMessage?, unreadCount, createdAt, updatedAt, isActive, participants (Map<userId, ParticipantInfo(name, profileImg?)>)
 - **MessageModel**: id, chatId, senderId, content, type, sentAt, isRead, imageUrl?
 - **CategoryModel**: id, name, iconUrl, color, order
 - **LocationModel**: latitude, longitude, address, district, city

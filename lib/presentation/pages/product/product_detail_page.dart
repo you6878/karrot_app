@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:karrot_clone/domain/entities/product.dart';
 import 'package:karrot_clone/presentation/pages/chat/chat_room_page.dart';
+import 'package:karrot_clone/domain/usecases/create_chat_usecase.dart';
+import 'package:karrot_clone/data/repositories/chat_repository_impl.dart';
+import 'package:karrot_clone/data/repositories/user_repository_impl.dart';
 
 class ProductDetailPage extends StatefulWidget {
   final Product product;
@@ -20,6 +23,7 @@ class ProductDetailPage extends StatefulWidget {
 class _ProductDetailPageState extends State<ProductDetailPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
+  late final CreateChatUseCase _createChatUseCase;
 
   bool isFavorite = false;
   int currentImageIndex = 0;
@@ -28,6 +32,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   @override
   void initState() {
     super.initState();
+    _createChatUseCase = CreateChatUseCase(
+      chatRepository: ChatRepositoryImpl(),
+      userRepository: UserRepositoryImpl(),
+    );
     _initializeLikeStatus();
   }
 
@@ -46,39 +54,21 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     }
   }
 
-  /// 채팅방 생성 또는 가져오기
+  /// 채팅방 생성 또는 가져오기 (participants 정보 포함)
   Future<void> _createOrGetChatRoom(String myUid) async {
     final sellerId = widget.product.sellerId;
 
-    // 두 UID를 오름차순으로 정렬하여 채팅방 ID 생성
-    final List<String> uids = [myUid, sellerId]..sort();
-    final chatRoomId = '${uids[0]}_${uids[1]}';
-
     try {
-      // 채팅방 문서 참조
-      final chatRoomRef = _firestore.collection('chats').doc(chatRoomId);
-      final chatRoomDoc = await chatRoomRef.get();
+      // CreateChatUseCase를 사용하여 채팅방 생성 (유저 정보 자동 포함)
+      final chatEntity = await _createChatUseCase(
+        productId: widget.product.id,
+        buyerId: myUid,
+        sellerId: sellerId,
+      );
 
-      // 채팅방이 존재하지 않으면 생성
-      if (!chatRoomDoc.exists) {
-        final now = DateTime.now();
-        await chatRoomRef.set({
-          'productId': widget.product.id,
-          'buyerId': myUid,
-          'sellerId': sellerId,
-          'lastMessage': null,
-          'unreadCount': 0,
-          'createdAt': now,
-          'updatedAt': now,
-          'isActive': true,
-        });
-      }
-
-      // 판매자 정보 가져오기
-      final sellerDoc =
-          await _firestore.collection('users').doc(sellerId).get();
-      final sellerName =
-          sellerDoc.exists ? (sellerDoc.data()?['nickname'] ?? '판매자') : '판매자';
+      // 판매자 정보 가져오기 (participants에서)
+      final sellerInfo = chatEntity.participants[sellerId];
+      final sellerName = sellerInfo?.name ?? '판매자';
 
       // 채팅방으로 이동
       if (mounted) {

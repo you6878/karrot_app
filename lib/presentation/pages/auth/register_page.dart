@@ -38,21 +38,6 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      // 닉네임 중복 확인
-      final isNicknameAvailable = await _userRepository
-          .isNicknameAvailable(_nicknameController.text.trim());
-      if (!isNicknameAvailable) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('이미 사용 중인 닉네임입니다.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-
       // Firebase Auth 이메일 회원가입
       final credential = await firebase_auth.FirebaseAuth.instance
           .createUserWithEmailAndPassword(
