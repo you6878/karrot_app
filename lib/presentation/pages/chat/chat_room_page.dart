@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import '../../../data/models/message_model.dart';
 import '../../../domain/entities/message_entity.dart';
+import '../../../data/datasources/remote/message_remote_datasource.dart';
+import '../../../data/repositories/message_repository_impl.dart';
+import '../../../domain/repositories/message_repository.dart';
 
 class ChatRoomPage extends StatefulWidget {
   final Product product;
@@ -29,12 +32,21 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final firebase_auth.FirebaseAuth _auth = firebase_auth.FirebaseAuth.instance;
 
+  late final MessageRepository _messageRepository;
   String? _chatId;
   bool _isLoading = true;
+
+  // 읽음 처리를 위한 이전 메시지 ID 목록
+  Set<String> _previousMessageIds = {};
 
   @override
   void initState() {
     super.initState();
+    // MessageRepository 초기화
+    final messageDataSource = MessageRemoteDataSource(firestore: _firestore);
+    _messageRepository = MessageRepositoryImpl(
+      remoteDataSource: messageDataSource,
+    );
     _initializeChatRoom();
   }
 
@@ -79,6 +91,11 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
         _isLoading = false;
       });
 
+      // 채팅방 입장 시 안 읽은 메시지 자동 읽음 처리
+      if (_chatId != null) {
+        _markUnreadMessagesAsRead();
+      }
+
       // 스크롤을 맨 아래로
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollToBottom();
@@ -87,6 +104,71 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  /// 📊 채팅방 입장 시 상대방이 보낸 안 읽은 메시지를 Batch로 읽음 처리
+  Future<void> _markUnreadMessagesAsRead() async {
+    if (_chatId == null) return;
+
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+
+    try {
+      // 상대방이 보낸 읽지 않은 메시지 조회
+      final unreadMessages = await _messageRepository.getUnreadMessages(
+        chatId: _chatId!,
+        currentUserId: currentUser.uid,
+      );
+
+      if (unreadMessages.isEmpty) return;
+
+      // 메시지 ID 목록 추출
+      final messageIds = unreadMessages.map((msg) => msg.id).toList();
+
+      // Batch Write로 한 번에 읽음 처리
+      await _messageRepository.markMessagesAsRead(
+        chatId: _chatId!,
+        messageIds: messageIds,
+      );
+
+      // 이전 메시지 ID 목록 업데이트
+      _previousMessageIds.addAll(messageIds);
+    } catch (e) {
+      // 에러 발생 시 무시 (사용자 경험에 영향 없음)
+    }
+  }
+
+  /// 📊 실시간으로 새 메시지가 오면 자동으로 읽음 처리
+  Future<void> _markNewMessagesAsRead(List<MessageModel> messages) async {
+    if (_chatId == null || messages.isEmpty) return;
+
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+
+    try {
+      // 상대방이 보낸 새 메시지 중 읽지 않은 메시지 필터링
+      final newUnreadMessages = messages.where((msg) {
+        return msg.senderId != currentUser.uid &&
+            !msg.isRead &&
+            !_previousMessageIds.contains(msg.id);
+      }).toList();
+
+      if (newUnreadMessages.isEmpty) return;
+
+      // 메시지 ID 목록 추출
+      final messageIds = newUnreadMessages.map((msg) => msg.id).toList();
+
+      // Batch Write로 한 번에 읽음 처리
+      await _messageRepository.markMessagesAsRead(
+        chatId: _chatId!,
+        messageIds: messageIds,
+      );
+
+      // 이전 메시지 ID 목록 업데이트
+      _previousMessageIds.addAll(messageIds);
+    } catch (e) {
+      // 에러 발생 시 무시 (사용자 경험에 영향 없음)
     }
   }
 
@@ -231,8 +313,9 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                               });
                             }).toList();
 
-                            // 메시지가 로드된 후 스크롤
+                            // 📊 실시간으로 새 메시지 자동 읽음 처리
                             WidgetsBinding.instance.addPostFrameCallback((_) {
+                              _markNewMessagesAsRead(messages);
                               _scrollToBottom();
                             });
 
