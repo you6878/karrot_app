@@ -53,6 +53,7 @@ dependencies:
   # Image
   image_picker: ^1.1.2
   cached_network_image: ^3.4.1
+  path_provider: ^2.1.5
   
   # Map
   flutter_naver_map: ^1.4.1+1
