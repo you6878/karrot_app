@@ -49,6 +49,7 @@ dependencies:
   geolocator: ^13.0.2
   geocoding: ^3.0.0
   permission_handler: ^11.3.1
+  dart_geohash: ^2.0.2
   
   # Image
   image_picker: ^1.1.2

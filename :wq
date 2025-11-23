@@ -1,0 +1,17 @@
+EP12 - 당근 마켓 앱 만들기 지도 상품 영역 지정(바이브 코딩)
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# On branch main
+# Your branch is up to date with 'origin/main'.
+#
+# Changes to be committed:
+#	modified:   .cursorrules
+#	modified:   NAVER_MAP_SETUP.md
+#	modified:   lib/data/models/product_model.dart
+#	modified:   lib/domain/entities/product.dart
+#	modified:   lib/presentation/pages/main/town_life/town_life_page.dart
+#	modified:   lib/presentation/pages/product/product_upload_page.dart
+#	modified:   pubspec.lock
+#	modified:   pubspec.yaml
+#

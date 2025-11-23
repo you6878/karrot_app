@@ -13,6 +13,7 @@ class Product extends Equatable {
   final String location;
   final double? longitude;
   final double? latitude;
+  final String? geoHash;
   final ProductStatus status;
   final int viewCount;
   final int likeCount;
@@ -32,6 +33,7 @@ class Product extends Equatable {
     required this.location,
     this.longitude,
     this.latitude,
+    this.geoHash,
     required this.status,
     required this.viewCount,
     required this.likeCount,
@@ -53,6 +55,7 @@ class Product extends Equatable {
         location,
         longitude,
         latitude,
+        geoHash,
         status,
         viewCount,
         likeCount,

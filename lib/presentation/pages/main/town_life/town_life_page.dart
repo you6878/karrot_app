@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:dart_geohash/dart_geohash.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_naver_map/flutter_naver_map.dart';
@@ -21,11 +22,37 @@ class TownLifePage extends StatefulWidget {
   State<TownLifePage> createState() => _TownLifePageState();
 }
 
+/// 거리 옵션
+enum DistanceOption {
+  near(label: '0.3km', value: 0.3, geoHashPrecision: 6),
+  medium(label: '2.4km', value: 2.4, geoHashPrecision: 5),
+  far(label: '10km', value: 10.0, geoHashPrecision: 4);
+
+  const DistanceOption({
+    required this.label,
+    required this.value,
+    required this.geoHashPrecision,
+  });
+
+  final String label;
+  final double value;
+  final int geoHashPrecision;
+}
+
 class _TownLifePageState extends State<TownLifePage> {
   NaverMapController? _mapController;
   NCircleOverlay? _currentLocationCircle;
   final List<NMarker> _productMarkers = [];
   final List<ProductModel> _products = [];
+
+  // 마지막으로 상품을 로드한 위치
+  NLatLng? _lastLoadedLocation;
+
+  // 선택된 거리 옵션
+  DistanceOption _selectedDistance = DistanceOption.medium;
+
+  // 상품 재로드를 위한 최소 이동 거리 (km)
+  static const double _reloadDistanceThreshold = 2.0;
 
   // 서울시청 좌표 (기본값)
   static const _defaultLocation = NLatLng(37.5666, 126.9779);
@@ -39,13 +66,59 @@ class _TownLifePageState extends State<TownLifePage> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          '동네생활',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF333333),
-          ),
+        title: Row(
+          children: [
+            const Text(
+              '동네생활',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF333333),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // 거리 선택 드롭다운
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFF6F0F).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: const Color(0xFFFF6F0F),
+                  width: 1,
+                ),
+              ),
+              child: DropdownButton<DistanceOption>(
+                value: _selectedDistance,
+                underline: const SizedBox(),
+                isDense: true,
+                icon: const Icon(
+                  Icons.arrow_drop_down,
+                  color: Color(0xFFFF6F0F),
+                  size: 20,
+                ),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFFF6F0F),
+                ),
+                items: DistanceOption.values.map((option) {
+                  return DropdownMenuItem(
+                    value: option,
+                    child: Text(option.label),
+                  );
+                }).toList(),
+                onChanged: (newValue) {
+                  if (newValue != null && newValue != _selectedDistance) {
+                    setState(() {
+                      _selectedDistance = newValue;
+                    });
+                    _onDistanceChanged();
+                  }
+                },
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
@@ -104,7 +177,8 @@ class _TownLifePageState extends State<TownLifePage> {
               // 카메라 변경 시 처리
             },
             onCameraIdle: () {
-              // 카메라 이동 완료 시 처리
+              // 카메라 이동 완료 시 해당 위치 기준으로 상품 재로드 확인
+              _checkAndReloadProducts();
             },
           ),
 
@@ -136,6 +210,32 @@ class _TownLifePageState extends State<TownLifePage> {
       }
     } catch (e) {
       debugPrint('위치 초기화 실패: $e');
+    }
+  }
+
+  /// 거리 선택이 변경되었을 때 호출
+  Future<void> _onDistanceChanged() async {
+    if (_mapController == null) return;
+
+    try {
+      // 현재 카메라 위치 가져오기
+      final cameraPosition = await _mapController!.getCameraPosition();
+      final currentLocation = cameraPosition.target;
+
+      // 선택된 거리로 상품 재로드
+      await _loadProductMarkersAtLocation(currentLocation);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${_selectedDistance.label} 반경 내 상품을 표시합니다'),
+            duration: const Duration(seconds: 1),
+            backgroundColor: const Color(0xFFFF6F0F),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('거리 변경 후 상품 재로드 실패: $e');
     }
   }
 
@@ -248,17 +348,90 @@ class _TownLifePageState extends State<TownLifePage> {
   }
 
   /// Firestore에서 제품 데이터를 가져와서 마커로 표시
+  /// geo_hash 앞 4자리를 사용하여 현재 위치 기준 약 20km 반경 내 상품만 조회
   Future<void> _loadProductMarkers() async {
     if (_mapController == null) return;
 
     try {
-      // Firestore에서 제품 데이터 가져오기
-      final querySnapshot = await FirebaseFirestore.instance
-          .collection(FirebaseCollections.products)
-          .where('latitude', isNotEqualTo: null)
-          .where('longitude', isNotEqualTo: null)
-          .limit(50) // 성능을 위해 최대 50개로 제한
-          .get();
+      // 현재 위치 가져오기
+      final position = await _getCurrentLocation();
+
+      if (position != null) {
+        await _loadProductMarkersAtLocation(
+          NLatLng(position.latitude, position.longitude),
+        );
+      } else {
+        // 위치를 가져올 수 없는 경우 기본 쿼리 (제한적으로)
+        await _loadProductMarkersAtLocation(null);
+      }
+    } catch (e) {
+      debugPrint('제품 마커 로드 실패: $e');
+
+      // 에러 발생 시 사용자에게 알림
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('주변 상품을 불러오는데 실패했습니다: ${e.toString()}'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  /// 특정 위치 기준으로 상품 마커 로드
+  Future<void> _loadProductMarkersAtLocation(NLatLng? location) async {
+    if (_mapController == null) return;
+
+    try {
+      QuerySnapshot querySnapshot;
+
+      if (location != null) {
+        // 위치의 geo_hash 계산
+        final geoHasher = GeoHasher();
+        final currentGeoHash = geoHasher.encode(
+          location.longitude,
+          location.latitude,
+          precision: 9,
+        );
+
+        // 선택된 거리 옵션에 따라 geo_hash 정밀도 사용
+        final geoHashPrecision = _selectedDistance.geoHashPrecision;
+        final geoHashPrefix = currentGeoHash.substring(0, geoHashPrecision);
+
+        debugPrint(
+          '위치 (${location.latitude}, ${location.longitude}) '
+          'geo_hash: $currentGeoHash\n'
+          '검색 반경: ${_selectedDistance.label} '
+          '(정밀도: $geoHashPrecision자리, 접두사: $geoHashPrefix)',
+        );
+
+        // geo_hash 기반 범위 쿼리
+        // geo_hash가 접두사로 시작하는 상품만 조회
+        querySnapshot = await FirebaseFirestore.instance
+            .collection(FirebaseCollections.products)
+            .where('geo_hash', isGreaterThanOrEqualTo: geoHashPrefix)
+            .where('geo_hash', isLessThan: '$geoHashPrefix\uf8ff')
+            .limit(100) // geo_hash 필터링으로 이미 범위가 제한되므로 100개로 증가
+            .get();
+
+        debugPrint(
+          'geo_hash 기반 쿼리 (${_selectedDistance.label} 반경): '
+          '${querySnapshot.docs.length}개 상품 발견',
+        );
+
+        // 마지막 로드 위치 저장
+        _lastLoadedLocation = location;
+      } else {
+        // 위치를 가져올 수 없는 경우 기본 쿼리 (제한적으로)
+        debugPrint('위치를 가져올 수 없어 기본 쿼리 사용');
+        querySnapshot = await FirebaseFirestore.instance
+            .collection(FirebaseCollections.products)
+            .where('latitude', isNotEqualTo: null)
+            .where('longitude', isNotEqualTo: null)
+            .limit(30) // 위치 정보 없을 때는 더 적게
+            .get();
+      }
 
       // 기존 마커 제거
       for (final marker in _productMarkers) {
@@ -283,8 +456,44 @@ class _TownLifePageState extends State<TownLifePage> {
 
       debugPrint('제품 마커 ${_productMarkers.length}개 로드 완료');
     } catch (e) {
-      debugPrint('제품 마커 로드 실패: $e');
+      debugPrint('위치 기반 제품 마커 로드 실패: $e');
+      rethrow;
     }
+  }
+
+  /// 카메라 이동 후 상품 재로드 확인
+  /// 마지막 로드 위치에서 일정 거리 이상 이동했을 때만 재로드
+  Future<void> _checkAndReloadProducts() async {
+    if (_mapController == null) return;
+
+    try {
+      // 현재 카메라 위치 가져오기
+      final cameraPosition = await _mapController!.getCameraPosition();
+      final currentLocation = cameraPosition.target;
+
+      // 마지막 로드 위치가 없거나 일정 거리 이상 이동했는지 확인
+      if (_lastLoadedLocation == null ||
+          _calculateDistance(_lastLoadedLocation!, currentLocation) >=
+              _reloadDistanceThreshold) {
+        debugPrint(
+          '카메라가 ${_reloadDistanceThreshold}km 이상 이동함. 상품 재로드 중...',
+        );
+        await _loadProductMarkersAtLocation(currentLocation);
+      }
+    } catch (e) {
+      debugPrint('상품 재로드 확인 실패: $e');
+    }
+  }
+
+  /// 두 위치 사이의 거리 계산 (km)
+  double _calculateDistance(NLatLng start, NLatLng end) {
+    return Geolocator.distanceBetween(
+          start.latitude,
+          start.longitude,
+          end.latitude,
+          end.longitude,
+        ) /
+        1000; // 미터를 킬로미터로 변환
   }
 
   /// 제품 마커 추가
@@ -610,11 +819,11 @@ class _TownLifePageState extends State<TownLifePage> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       '우리 동네',
                       style: TextStyle(
                         fontSize: 16,
@@ -622,13 +831,26 @@ class _TownLifePageState extends State<TownLifePage> {
                         color: Color(0xFF333333),
                       ),
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      '동네 소식과 정보를 확인하세요',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF808080),
-                      ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          '${_selectedDistance.label} 반경',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFFF6F0F),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '· 상품 ${_products.length}개',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF808080),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

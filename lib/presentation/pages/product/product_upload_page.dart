@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:dart_geohash/dart_geohash.dart';
 import 'package:karrot_clone/utils/helpers/location_helper.dart';
 import 'package:karrot_clone/data/models/product_model.dart';
 import 'package:karrot_clone/domain/entities/product.dart';
@@ -302,6 +303,17 @@ class _ProductUploadPageState extends State<ProductUploadPage> {
         uploadedImageUrls = await _uploadImages();
       }
 
+      // geo_hash 계산 (위도/경도가 있는 경우에만)
+      String? geoHash;
+      if (_currentPosition != null) {
+        final geoHasher = GeoHasher();
+        geoHash = geoHasher.encode(
+          _currentPosition!.longitude,
+          _currentPosition!.latitude,
+          precision: 9, // 정밀도 9 (약 5m x 5m 정확도)
+        );
+      }
+
       // Product 엔티티 생성
       final now = DateTime.now();
       final product = ProductModel(
@@ -317,6 +329,7 @@ class _ProductUploadPageState extends State<ProductUploadPage> {
             : _locationController.text.trim(),
         longitude: _currentPosition?.longitude,
         latitude: _currentPosition?.latitude,
+        geoHash: geoHash,
         status: ProductStatus.available,
         viewCount: 0,
         likeCount: 0,
