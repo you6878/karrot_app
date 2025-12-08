@@ -111,7 +111,10 @@ lib/
 - **LocationModel**: latitude, longitude, address, district, city
 - **TransactionModel**: id, productId, buyerId, sellerId, price, type, completedAt, review?
 - **ReviewModel**: id, transactionId, reviewerId, revieweeId, rating, content, createdAt
+- **MannerRatingModel**: id, reviewerId, revieweeId, productId, rating, createdAt (매너 온도 평가 기록)
 - **NotificationModel**: id, userId, title, body, type, data, isRead, createdAt
+- **RecentViewedProductModel**: id, userId, productId, productTitle, productPrice, productImageUrl, productLocation, productStatus, viewedAt
+
 
 ## Enums
 enum ProductStatus { available, reserved, sold }

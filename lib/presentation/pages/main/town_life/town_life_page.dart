@@ -549,11 +549,16 @@ class _TownLifePageState extends State<TownLifePage> {
       final imageStream = imageProvider.resolve(ImageConfiguration.empty);
 
       final completer = Completer<ui.Image>();
-      imageStream.addListener(
-        ImageStreamListener((ImageInfo info, bool _) {
+      late ImageStreamListener listener;
+
+      listener = ImageStreamListener((ImageInfo info, bool _) {
+        if (!completer.isCompleted) {
           completer.complete(info.image);
-        }),
-      );
+          imageStream.removeListener(listener);
+        }
+      });
+
+      imageStream.addListener(listener);
 
       final image = await completer.future;
 
