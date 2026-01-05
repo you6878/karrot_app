@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:karrot_clone/data/models/product_model.dart';
-import 'package:karrot_clone/domain/entities/product.dart';
+import 'package:karrot_clone/presentation/pages/product/product_detail_page.dart';
 
-class FavoritesPage extends StatefulWidget {
-  const FavoritesPage({super.key});
+class PurchaseHistoryPage extends StatefulWidget {
+  const PurchaseHistoryPage({super.key});
 
   @override
-  State<FavoritesPage> createState() => _FavoritesPageState();
+  State<PurchaseHistoryPage> createState() => _PurchaseHistoryPageState();
 }
 
-class _FavoritesPageState extends State<FavoritesPage> {
+class _PurchaseHistoryPageState extends State<PurchaseHistoryPage> {
   String? _currentUserId;
 
   @override
@@ -41,7 +41,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          '관심목록',
+          '구매내역',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -59,15 +59,15 @@ class _FavoritesPageState extends State<FavoritesPage> {
                 ),
               ),
             )
-          : _buildFavoritesList(),
+          : _buildPurchaseList(),
     );
   }
 
-  Widget _buildFavoritesList() {
+  Widget _buildPurchaseList() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('products')
-          .where('likeUids', arrayContains: _currentUserId)
+          .where('buyerId', isEqualTo: _currentUserId)
           .orderBy('updatedAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
@@ -98,23 +98,14 @@ class _FavoritesPageState extends State<FavoritesPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text(
-                  '❤️',
+                  '🛍️',
                   style: TextStyle(fontSize: 48),
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  '관심 상품이 없습니다',
+                  '구매한 상품이 없습니다',
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF333333),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  '마음에 드는 상품에 하트를 눌러보세요',
-                  style: TextStyle(
-                    fontSize: 14,
                     color: Color(0xFF808080),
                   ),
                 ),
@@ -142,8 +133,12 @@ class _FavoritesPageState extends State<FavoritesPage> {
   Widget _buildProductCard(ProductModel product) {
     return GestureDetector(
       onTap: () {
-        // TODO: 상품 상세 페이지로 이동
-        debugPrint('상품 클릭: ${product.title}');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ProductDetailPage(product: product),
+          ),
+        );
       },
       child: Container(
         decoration: BoxDecoration(
@@ -163,8 +158,6 @@ class _FavoritesPageState extends State<FavoritesPage> {
               Expanded(
                 child: _buildProductInfo(product),
               ),
-              // 하트 아이콘
-              _buildLikeButton(product),
             ],
           ),
         ),
@@ -210,12 +203,23 @@ class _FavoritesPageState extends State<FavoritesPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 상태 배지
-        if (product.status != ProductStatus.available)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _buildStatusBadge(product.status),
+        // 상태 배지 (구매완료)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8F5E9),
+            borderRadius: BorderRadius.circular(4),
           ),
+          child: const Text(
+            '구매완료',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF2E7D32),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
         // 상품 제목
         Text(
           product.title,
@@ -238,17 +242,14 @@ class _FavoritesPageState extends State<FavoritesPage> {
           ),
         ),
         const SizedBox(height: 4),
-        // 위치 및 시간
+        // 위치 및 구매 시간
         Row(
           children: [
-            Flexible(
-              child: Text(
-                product.location,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF808080),
-                ),
-                overflow: TextOverflow.ellipsis,
+            Text(
+              product.location,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Color(0xFF808080),
               ),
             ),
             const Text(
@@ -267,136 +268,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        // 관심 수와 조회 수
-        Row(
-          children: [
-            const Icon(
-              Icons.favorite,
-              size: 14,
-              color: Color(0xFFFF700F),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '${product.likeCount}',
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF808080),
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Icon(
-              Icons.visibility_outlined,
-              size: 14,
-              color: Color(0xFF808080),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              '${product.viewCount}',
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF808080),
-              ),
-            ),
-          ],
-        ),
       ],
-    );
-  }
-
-  Widget _buildLikeButton(ProductModel product) {
-    final isLiked = product.likeUids.contains(_currentUserId);
-
-    return GestureDetector(
-      onTap: () async {
-        await _toggleLike(product);
-      },
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        child: Icon(
-          isLiked ? Icons.favorite : Icons.favorite_border,
-          color: const Color(0xFFFF700F),
-          size: 24,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _toggleLike(ProductModel product) async {
-    if (_currentUserId == null) return;
-
-    try {
-      final docRef = FirebaseFirestore.instance
-          .collection('products')
-          .doc(product.id);
-
-      final isLiked = product.likeUids.contains(_currentUserId);
-
-      if (isLiked) {
-        // 관심 목록에서 제거
-        await docRef.update({
-          'likeUids': FieldValue.arrayRemove([_currentUserId]),
-          'likeCount': FieldValue.increment(-1),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      } else {
-        // 관심 목록에 추가
-        await docRef.update({
-          'likeUids': FieldValue.arrayUnion([_currentUserId]),
-          'likeCount': FieldValue.increment(1),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
-    } catch (e) {
-      debugPrint('좋아요 토글 실패: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('오류가 발생했습니다'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
-
-  Widget _buildStatusBadge(ProductStatus status) {
-    Color bgColor;
-    Color textColor;
-    String text;
-
-    switch (status) {
-      case ProductStatus.available:
-        bgColor = const Color(0xFFE8F5E9);
-        textColor = const Color(0xFF2E7D32);
-        text = '판매중';
-        break;
-      case ProductStatus.reserved:
-        bgColor = const Color(0xFFFFF3E0);
-        textColor = const Color(0xFFE65100);
-        text = '예약중';
-        break;
-      case ProductStatus.sold:
-        bgColor = const Color(0xFFEEEEEE);
-        textColor = const Color(0xFF616161);
-        text = '판매완료';
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: textColor,
-        ),
-      ),
     );
   }
 
@@ -424,12 +296,6 @@ class _FavoritesPageState extends State<FavoritesPage> {
     }
   }
 }
-
-
-
-
-
-
 
 
 

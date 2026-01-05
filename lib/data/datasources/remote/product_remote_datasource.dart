@@ -12,6 +12,8 @@ abstract class ProductRemoteDataSource {
   Future<void> incrementViewCount(String productId);
   Future<void> incrementLikeCount(String productId);
   Future<void> decrementLikeCount(String productId);
+  Future<void> purchaseProduct(String productId, String buyerId);
+  Future<List<ProductModel>> getProductsByBuyer(String buyerId);
 }
 
 class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
@@ -141,6 +143,35 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       });
     } catch (e) {
       throw Exception('좋아요 감소 실패: $e');
+    }
+  }
+
+  @override
+  Future<void> purchaseProduct(String productId, String buyerId) async {
+    try {
+      await _productsCollection.doc(productId).update({
+        'buyerId': buyerId,
+        'status': 'sold',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      throw Exception('상품 구매 실패: $e');
+    }
+  }
+
+  @override
+  Future<List<ProductModel>> getProductsByBuyer(String buyerId) async {
+    try {
+      final querySnapshot = await _productsCollection
+          .where('buyerId', isEqualTo: buyerId)
+          .orderBy('updatedAt', descending: true)
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => ProductModel.fromFirestore(doc))
+          .toList();
+    } catch (e) {
+      throw Exception('구매 상품 목록 조회 실패: $e');
     }
   }
 }

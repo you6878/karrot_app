@@ -10,6 +10,7 @@ class Product extends Equatable {
   final List<String> imageUrls;
   final String category;
   final String sellerId;
+  final String? buyerId;
   final String location;
   final double? longitude;
   final double? latitude;
@@ -30,6 +31,7 @@ class Product extends Equatable {
     required this.imageUrls,
     required this.category,
     required this.sellerId,
+    this.buyerId,
     required this.location,
     this.longitude,
     this.latitude,
@@ -52,6 +54,7 @@ class Product extends Equatable {
         imageUrls,
         category,
         sellerId,
+        buyerId,
         location,
         longitude,
         latitude,

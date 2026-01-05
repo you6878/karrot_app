@@ -109,4 +109,22 @@ class ProductRepositoryImpl implements ProductRepository {
       throw Exception('좋아요 감소 실패: $e');
     }
   }
+
+  @override
+  Future<void> purchaseProduct(String productId, String buyerId) async {
+    try {
+      await remoteDataSource.purchaseProduct(productId, buyerId);
+    } catch (e) {
+      throw Exception('상품 구매 실패: $e');
+    }
+  }
+
+  @override
+  Future<List<Product>> getProductsByBuyer(String buyerId) async {
+    try {
+      return await remoteDataSource.getProductsByBuyer(buyerId);
+    } catch (e) {
+      throw Exception('구매 상품 목록 조회 실패: $e');
+    }
+  }
 }

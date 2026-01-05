@@ -774,11 +774,12 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
 
                   if (rating != null && mounted) {
                     try {
-                      // TODO: 실제 구매 로직 구현 (TransactionModel 생성)
+                      // 상품 구매 처리 (buyerId 저장 및 상태 변경)
                       await _firestore
                           .collection('products')
                           .doc(widget.product.id)
                           .update({
+                        'buyerId': currentUser.uid,
                         'status': 'sold',
                         'updatedAt': FieldValue.serverTimestamp(),
                       });
@@ -794,6 +795,9 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                             backgroundColor: Color(0xFF2E7D32),
                           ),
                         );
+
+                        // 상세 페이지에서 나가기
+                        Navigator.pop(context);
                       }
                     } catch (e) {
                       if (mounted) {

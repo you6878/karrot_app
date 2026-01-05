@@ -37,4 +37,10 @@ abstract class ProductRepository {
 
   /// 상품 좋아요 수를 감소시킵니다
   Future<void> decrementLikeCount(String productId);
+
+  /// 상품을 구매합니다 (구매자 ID 저장 및 상태 변경)
+  Future<void> purchaseProduct(String productId, String buyerId);
+
+  /// 구매자 ID로 구매한 상품 목록을 조회합니다
+  Future<List<Product>> getProductsByBuyer(String buyerId);
 }
