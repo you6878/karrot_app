@@ -47,3 +47,5 @@ class RecentViewedProductEntity extends Equatable {
 
 
 
+
+

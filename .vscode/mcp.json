@@ -5,6 +5,10 @@
       "args": [
         "cursor-talk-to-figma-mcp@latest"
       ]
+    },
+    "tosspayments-integration-guide": {
+      "command": "npx",
+      "args": ["-y", "@tosspayments/integration-guide-mcp@latest"]
     }
   }
 }

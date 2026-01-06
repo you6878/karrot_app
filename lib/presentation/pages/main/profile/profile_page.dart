@@ -11,6 +11,8 @@ import 'sales_history_page.dart';
 import 'purchase_history_page.dart';
 import 'favorites_page.dart';
 import 'recent_viewed_page.dart';
+import 'membership_page.dart';
+import 'package:karrot_clone/services/payment/membership_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -22,11 +24,23 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   UserModel? _currentUser;
   bool _isLoading = true;
+  bool _isMember = false;
+  final MembershipService _membershipService = MembershipService();
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _checkMembershipStatus();
+  }
+
+  Future<void> _checkMembershipStatus() async {
+    final isMember = await _membershipService.isMember();
+    if (mounted) {
+      setState(() {
+        _isMember = isMember;
+      });
+    }
   }
 
   Future<void> _loadUserData() async {
@@ -92,6 +106,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Column(
                     children: [
                       _buildProfileSection(),
+                      const SizedBox(height: 16),
+                      _buildMembershipSection(),
                       const SizedBox(height: 20),
                       _buildMyTransactionsSection(),
                       const SizedBox(height: 20),
@@ -121,6 +137,98 @@ class _ProfilePageState extends State<ProfilePage> {
           // 수정 버튼
           _buildEditButton(),
         ],
+      ),
+    );
+  }
+
+  /// 멤버십 섹션
+  Widget _buildMembershipSection() {
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const MembershipPage(),
+          ),
+        );
+        // 돌아왔을 때 멤버십 상태 새로고침
+        _checkMembershipStatus();
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: _isMember
+              ? const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFFF700F), Color(0xFFFF9F5A)],
+                )
+              : null,
+          color: _isMember ? null : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: _isMember ? null : Border.all(color: const Color(0xFFE6E6E6)),
+          boxShadow: _isMember
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFFF700F).withOpacity(0.25),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: _isMember
+                    ? Colors.white.withOpacity(0.2)
+                    : const Color(0xFFFFF4ED),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(
+                child: Text(
+                  '🥕',
+                  style: TextStyle(fontSize: 24),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _isMember ? '당근 프리미엄 이용 중' : '당근 멤버십 가입하기',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: _isMember ? Colors.white : const Color(0xFF333333),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _isMember ? '프리미엄 혜택을 누리고 있어요' : '끌올 무제한, 광고 제거, 우선 노출 혜택',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _isMember
+                          ? Colors.white.withOpacity(0.8)
+                          : const Color(0xFF808080),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: _isMember ? Colors.white : const Color(0xFFB3B3B3),
+            ),
+          ],
+        ),
       ),
     );
   }
